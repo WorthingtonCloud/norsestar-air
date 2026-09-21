@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" data-mode="byok">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src https://openrouter.ai; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NorseStar Air — Decision Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true">
+      <path d="M20 1 L23 17 L39 20 L23 23 L20 39 L17 23 L1 20 L17 17 Z" fill="currentColor"/>
+      <path d="M20 9 L21.6 18.4 L31 20 L21.6 21.6 L20 31 L18.4 21.6 L9 20 L18.4 18.4 Z" fill="#070b14" transform="rotate(45 20 20)"/>
+    </svg>
+    <div>
+      <div class="brand-name">NORSESTAR AIR</div>
+      <div class="brand-sub">Decision Lab · continuous re-decisioning</div>
+    </div>
+  </div>
+
+  <div class="layers" aria-label="The three layers">
+    <span class="layer jev"><i></i>JEV interprets</span>
+    <span class="arrow">→</span>
+    <span class="layer eng"><i></i>Code decides</span>
+    <span class="arrow">→</span>
+    <span class="layer llm"><i></i>LLM talks</span>
+  </div>
+
+  <div class="btns top-btns">
+    <button class="btn primary" id="randomBtn" title="A new made-up customer with a different record">Random customer</button>
+    <button class="btn" id="resetBtn" title="Back to the default customer and an empty conversation">Reset</button>
+    <button class="btn byok-only" id="forgetKeyBtn" title="Wipe the key from this tab's memory">Forget key</button>
+  </div>
+
+  <label class="switch" title="OFF = static customer record and rules only. ON = add Jev's reading of the conversation.">
+    <span class="switch-label">JEV Decisioning</span>
+    <input type="checkbox" id="jevToggle" checked>
+    <span class="track"><span class="thumb"></span></span>
+    <span class="switch-state" id="jevState">ON</span>
+  </label>
+</header>
+
+<div class="totals" id="totals"></div>
+
+<main class="grid">
+  <section class="panel" id="customerPanel">
+    <div class="panel-head">
+      <h2><span class="num">01</span> Customer Context</h2>
+      <span class="hint">edit any field; the ranking re-scores</span>
+    </div>
+    <div class="panel-body">
+      <div id="customerCard"></div>
+      <form id="customerForm" class="fields" autocomplete="off"></form>
+
+      <h3 class="sub">Business priorities <span class="hint">always total 100%</span></h3>
+      <div id="sliders" class="sliders"></div>
+      <p class="note" id="sliderNote">Moving a slider re-scores every offer with the <b>same</b> Jev reading. No model is called.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="chatPanel">
+    <div class="panel-head"><h2><span class="num">02</span> Conversation</h2><span class="hint" id="whoHint"></span></div>
+    <div class="panel-body chat" id="chat"></div>
+    <div class="chips" id="chips"></div>
+    <form id="chatForm" class="composer">
+      <input id="chatInput" type="text" placeholder="You are the customer. Say something…" autocomplete="off">
+      <button class="btn primary" type="submit" id="sendBtn">Send</button>
+    </form>
+  </section>
+
+  <section class="panel" id="decisionPanel">
+    <div class="panel-head"><h2><span class="num">03</span> Recommendations</h2><span class="hint" id="decisionHint"></span></div>
+    <div class="panel-body">
+      <div id="booking"></div>
+      <div id="top3"></div>
+
+      <h3 class="sub">Build a combination <span class="hint">tick what you want in the package</span><button class="btn tiny" id="clearCombo" hidden>Clear</button></h3>
+      <div class="combo-group"><span class="combo-label">Fare</span><div id="comboFare" class="combos"></div></div>
+      <div class="combo-group"><span class="combo-label">Add</span><div id="comboAddon" class="combos"></div></div>
+
+      <h3 class="sub">Ranked combinations <span class="hint" id="rankCount"></span></h3>
+      <div id="fullRanking" class="full"></div>
+      <button class="btn wide" id="showAllBtn" hidden></button>
+      <div id="blockedList"></div>
+      <details class="formula">
+        <summary>How the score is calculated</summary>
+        <pre>A combination is one fare (or no sale at all), an optional
+miles payment on an upgrade, and any subset of the add-ons
+that fare can carry. Every valid one is generated and scored;
+nothing is hand-written.
+
+final = 100 × ( w<sub>cv</sub>·customerValue + w<sub>conv</sub>·conversion
+              + w<sub>rev</sub>·revenue + w<sub>loy</sub>·loyalty )
+
+match         = base utility of the fare
+              + Σ over every part in the package:
+                  weight × (score signal − 0.5)
+                  weight × P(yes)
+                  0.25 × trip-priority  +  0.15 × intent
+              + 0.8 × P(asked for this cabin by name)
+              + 0.45 × fit of anything the fare already includes
+              − 0.12 per add-on the customer showed no interest in
+              − 0.6 × P(refusing extras), on every upsell
+              − 1.2 × (1 − affordability) × min(1, unasked $ ÷ 250)
+customerValue = match ÷ best match in this customer's set
+affordability = Σ P(price level) × min(1, budget[level] ÷ unasked $)
+                budgets by level: any · $130 · $45 · $0
+                unasked $ = price, less 75% of anything asked
+                for by name (that price is not a surprise)
+conversion    = ( 0.10 + 0.35·readiness + 0.55·affordability
+                  + 0.2·(upgrade propensity − 0.5) for upsells )
+                × 0.85 ^ (unwanted add-ons in the package)
+                × (1 − 0.8 × service mode)
+                "No sale" converts at the service-mode rate.
+service mode  = P(complaint) + P(cancel or refund)
+                + 0.8 × P(special assistance)
+revenue       = conversion × ( fare margin + Σ add-on margin ×
+                how much the customer wanted it ), ÷ the best in
+                the set. An unasked add-on earns nothing.
+loyalty       = strongest gesture in the package
+                × (0.5 + 0.5·loyalty value)
+              + service recovery × P(complaint)
+                a perk only earns loyalty if it was wanted
+
+Add-ons carry no base utility, so stacking them cannot
+inflate a score. Eligibility is a hard rule from the record,
+applied to parts before any combination is built.
+Click any package to see its own terms.</pre>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel trace" id="tracePanel">
+    <div class="panel-head"><h2><span class="num">04</span> JEV Decision Trace</h2><span class="hint" id="traceHint">one entry per customer message</span></div>
+    <div class="panel-body" id="trace"></div>
+  </section>
+</main>
+
+<!-- Bring-your-own-key build only (scripts/build-public.mjs sets data-mode="byok" on <html>). -->
+<dialog class="keygate" id="keyGate" aria-labelledby="keyGateTitle">
+  <form id="keyForm" autocomplete="off">
+    <div class="keygate-eyebrow">Public demo · bring your own key</div>
+    <h1 id="keyGateTitle">Paste an OpenRouter key to start</h1>
+    <p>This is the working demo, not a recording. Every message calls two paid models: Jev reads what the customer said, and Claude Haiku writes the reply. Both run through OpenRouter, so one key covers both. A message costs a fraction of a cent.</p>
+    <label class="keygate-field">
+      <span>OpenRouter API key</span>
+      <input type="password" id="keyInput" placeholder="sk-or-v1-…" spellcheck="false" autocomplete="off" required>
+    </label>
+    <div class="keygate-error" id="keyError" role="alert"></div>
+    <button class="btn primary wide" id="keyStart" type="submit">Start the demo</button>
+    <h2>Where your key goes</h2>
+    <ul>
+      <li><b>This tab's memory, and nowhere else on your machine.</b> No cookie, no local storage, no disk. Reload or close the tab and it is gone.</li>
+      <li><b>To openrouter.ai, straight from your browser.</b> This site is a folder of plain files with no server behind it, so there is nothing here that could receive a key or a conversation.</li>
+      <li><b>The page is locked to that one destination.</b> Its security policy refuses every background connection except openrouter.ai and runs no third-party scripts. Open your browser's Network tab and watch.</li>
+      <li><b>Safest of all:</b> <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">make a fresh key</a> with a $1 credit limit, use it here, and delete it when you are done.</li>
+    </ul>
+  </form>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
