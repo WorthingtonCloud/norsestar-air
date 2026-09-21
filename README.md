@@ -18,6 +18,21 @@ chat model, what the agent replied, and what each stage cost in time and money.
 Everything runs in your browser. You bring your own [OpenRouter](https://openrouter.ai) key, it
 stays in the tab, and nothing is sent anywhere except openrouter.ai.
 
+## This is a bench rig, and the gaps are on purpose
+
+You cannot change airports. There is no flight search, no login, no database, and nothing is ever
+booked. That is not a to-do list — it is the scope.
+
+All of that is well-understood plumbing. Building it properly would have taken weeks and taught me
+nothing, because it is not the question. The question is narrower: **what changes when a decision
+model is in the loop?** Does the system genuinely re-decide in real time as the conversation moves,
+rather than answering once and defending it? Is it cheap enough to run on every single message? Is
+it fast enough that nobody sits waiting? Does the customer end up with a better answer than a chat
+model alone would have given?
+
+Everything in here exists to make that visible and measurable. Everything that does not serve it
+was deliberately left out.
+
 ## Why I built it
 
 Most of what gets handed to a large language model is not writing. It is judgment: small,
@@ -37,6 +52,11 @@ packages, and a bad recommendation is obvious the moment you read it.
 probability and a weight you can read. The chat model never picks anything; it is handed the
 decision and the exact prices and told to write the sentence. That is the whole point of the trace
 panel — you can argue with a number instead of a vibe.
+
+**It re-decides, and you can watch it happen.** Each message re-scores the entire catalog from
+scratch against the whole conversation so far. A customer who opens with "cheapest" and then
+mentions a client meeting does not get a patched answer; they get a different winner, with the
+reason on screen. That is the behavior the demo exists to show.
 
 **It only hears what a question was written for.** Early on, a customer asking for "a direct
 flight" moved nothing at all, because no question asked about a nonstop. The set has since grown
@@ -103,16 +123,18 @@ rules, and writes the reply.
 | `index.html`, `app.js`, `styles.css` | the page and the trace panel |
 
 Flip **JEV Decisioning** off to see the same engine and the same agent working from the static
-customer record alone, deaf to the conversation.
+customer record alone, deaf to the conversation. That switch is the comparison the whole demo is
+built around.
 
-## What it does not do
+## Known limits of what is built
 
-No authentication, no database, no multiple users, no real booking and no flight search — ask for
-Miami on a Seattle record and the agent will tell you so. The weights are hand-set and plausible,
-not fitted to data, so near-ties at the top flip on small changes. Each cycle re-reads the whole
-conversation from scratch, so a customer who opened with "cheapest" can be shown a premium package
-three turns later if nothing since restated the budget. Decision cost is an estimate priced from
-tokens; the reply cost is an actual bill.
+Separate from the things left out on purpose, these are real and worth knowing.
+
+The weights are hand-set and plausible rather than fitted to data, so near-ties at the top flip on
+small changes. Each cycle re-reads the whole conversation from scratch, which is what makes the
+re-decisioning honest but also means a customer who opened with "cheapest" can be shown a premium
+package three turns later if nothing since restated the budget. Decision cost is an estimate priced
+from tokens; the reply cost is an actual bill.
 
 ## License
 
